@@ -30,6 +30,7 @@ import androidx.navigation.navArgument
 import coil.compose.AsyncImage
 import com.komikta.app.data.Comic
 import com.komikta.app.data.KomiktaRepository
+import com.komikta.app.data.KomiktaRepositories
 import kotlinx.coroutines.launch
 
 private val bg = Color(0xFF080808)
