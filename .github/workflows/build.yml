@@ -1,22 +1,17 @@
 
-name: Build Komikta APK
+name: Build Komikta Debug APK
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency:
-  group: komikta-apk-build
-  cancel-in-progress: true
-
 jobs:
   build:
-    name: Build Komikta Debug APK
+    name: Build Komikta APK
     runs-on: ubuntu-24.04
     timeout-minutes: 30
 
@@ -39,42 +34,40 @@ jobs:
         run: |
           set -euo pipefail
 
-          mkdir -p "$ANDROID_HOME/cmdline-tools"
-          cd "$RUNNER_TEMP"
+          SDK="$ANDROID_HOME"
+          mkdir -p "$SDK/cmdline-tools" "$RUNNER_TEMP/android-cli"
+          cd "$RUNNER_TEMP/android-cli"
 
           curl -fL --retry 3 \
-            -o android-tools.zip \
+            -o tools.zip \
             https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
 
-          mkdir -p android-tools-unpacked
-          unzip -q android-tools.zip -d android-tools-unpacked
+          unzip -q tools.zip
+          rm -rf "$SDK/cmdline-tools/latest"
+          mv cmdline-tools "$SDK/cmdline-tools/latest"
 
-          rm -rf "$ANDROID_HOME/cmdline-tools/latest"
-          mv android-tools-unpacked/cmdline-tools \
-            "$ANDROID_HOME/cmdline-tools/latest"
-
-          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
-          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-
-          sdkmanager --version
+          test -x "$SDK/cmdline-tools/latest/bin/sdkmanager"
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --version
 
       - name: Accept Android SDK licenses
         shell: bash
         run: |
           set -euo pipefail
-          yes | sdkmanager --sdk_root="$ANDROID_HOME" --licenses \
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses \
             || test "${PIPESTATUS[1]}" -eq 141
 
       - name: Install Android SDK packages
         shell: bash
         run: |
           set -euo pipefail
-          sdkmanager --sdk_root="$ANDROID_HOME" \
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            --sdk_root="$ANDROID_HOME" \
             "platform-tools" \
             "platforms;android-35" \
             "build-tools;35.0.0"
 
-      - name: Verify project structure
+      - name: Verify project files
         shell: bash
         run: |
           set -euo pipefail
@@ -82,7 +75,6 @@ jobs:
           test -f build.gradle.kts
           test -f app/build.gradle.kts
           test -f app/src/main/AndroidManifest.xml
-          test -f app/src/main/java/com/komikta/app/ui/KomiktaApp.kt
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -91,17 +83,13 @@ jobs:
 
       - name: Build APK
         shell: bash
-        run: |
-          set -euo pipefail
-          gradle --no-daemon --stacktrace assembleDebug
+        run: gradle --no-daemon --stacktrace assembleDebug
 
       - name: Verify APK
         shell: bash
         run: |
-          set -euo pipefail
-          APK="app/build/outputs/apk/debug/app-debug.apk"
-          test -s "$APK"
-          ls -lh "$APK"
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
