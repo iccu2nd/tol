@@ -224,13 +224,12 @@ private fun TopBar() {
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
             Box(Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(red), contentAlignment = Alignment.Center) {
-                Text("K", fontSize = 24.sp, fontWeight = FontWeight.Black, color = Color.White)
+                Text("K", fontSize = 24.sp, fontWeight = FontWeight.Black, color = Color.Black)
             }
             Spacer(Modifier.width(9.dp))
             Text("KOMIKTA", fontSize = 22.sp, fontWeight = FontWeight.Black, letterSpacing = (-0.8).sp, color = Color.White)
         }
-        IconButton(onClick = {}) { Icon(Icons.Default.Search, "Cari", tint = Color.White, modifier = Modifier.size(25.dp)) }
-        IconButton(onClick = {}) { Icon(Icons.Default.NotificationsNone, "Notifikasi", tint = Color.White, modifier = Modifier.size(24.dp)) }
+        Icon(Icons.Default.MenuBook, contentDescription = "Baca komik", tint = Color(0xFFBDBDC5), modifier = Modifier.size(23.dp))
     }
 }
 
@@ -296,7 +295,7 @@ private fun ComicSection(title: String, comics: List<Comic>, onOpen: (Comic) -> 
 
 @Composable
 private fun ComicCard(comic: Comic, onClick: () -> Unit) {
-    Column(Modifier.width(148.dp).clickable(onClick = onClick)) {
+    Column(Modifier.width(148.dp).glassSurface(RoundedCornerShape(14.dp)).clickable(onClick = onClick).padding(5.dp)) {
         Box(Modifier.fillMaxWidth().height(212.dp).clip(RoundedCornerShape(10.dp)).background(surface)) {
             ComicArtwork(
                 primaryUrl = comic.cover,
@@ -369,7 +368,7 @@ private fun DetailScreen(source: String, id: String, title: String, onBack: () -
     var reload by remember { mutableIntStateOf(0) }
     LaunchedEffect(source, id, reload) {
         loading = true
-        KomiktaRepository().detail(Comic(source = source, sourceId = id, id = "$source:$id", title = title)).fold(
+        KomiktaRepositories.shared.detail(Comic(source = source, sourceId = id, id = "$source:$id", title = title)).fold(
             { comic = it.comic; chapters = it.chapters; error = null },
             { error = it.message ?: "Detail gagal dimuat" }
         )
@@ -407,6 +406,7 @@ private fun DetailScreen(source: String, id: String, title: String, onBack: () -
             }
             comic?.synopsis?.let { synopsis -> item { Text("Sinopsis", Modifier.padding(horizontal = 20.dp), color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold); Text(synopsis, Modifier.padding(horizontal = 20.dp, vertical = 8.dp), color = muted, fontSize = 14.sp, lineHeight = 21.sp) } }
             item { Text("Daftar chapter", Modifier.padding(start = 20.dp, top = 12.dp, bottom = 8.dp), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold) }
+            if (chapters.isEmpty()) item { Column(Modifier.fillMaxWidth().padding(20.dp)) { Text("Chapter belum tersedia", color = muted); TextButton(onClick = { reload++ }) { Text("Muat ulang daftar") } } }
             items(chapters, key = { it.id.ifBlank { it.chapter } }) { chapter ->
                 Row(Modifier.fillMaxWidth().clickable { onRead(chapter.chapter) }.padding(horizontal = 20.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
@@ -429,7 +429,7 @@ private fun ReaderScreen(source: String, id: String, chapter: String, title: Str
     var reload by remember { mutableIntStateOf(0) }
     LaunchedEffect(source, id, chapter, reload) {
         loading = true
-        KomiktaRepository().chapter(Comic(source = source, sourceId = id, id = "$source:$id", title = title), chapter).fold(
+        KomiktaRepositories.shared.chapter(Comic(source = source, sourceId = id, id = "$source:$id", title = title), chapter).fold(
             { reader = it; error = null },
             { error = it.message ?: "Chapter gagal dimuat" }
         )

@@ -17,7 +17,7 @@ data class HomeState(
 )
 
 class AppViewModel : ViewModel() {
-    private val repository = KomiktaRepository()
+    private val repository = KomiktaRepositories.shared
     private val _home = MutableStateFlow(HomeState())
     val home: StateFlow<HomeState> = _home.asStateFlow()
     private val _catalog = MutableStateFlow<List<Comic>>(emptyList())

@@ -47,6 +47,7 @@ data class Chapter(
     val releaseDate: String? = null
 )
 data class DetailData(val comic: Comic = Comic(), val chapters: List<Chapter> = emptyList())
+data class ChapterListData(val chapters: List<Chapter> = emptyList())
 data class ChapterImage(
     val index: Int = 0,
     @SerializedName(value = "image", alternate = ["url", "src", "imageUrl", "image_url"]) val image: String = "",

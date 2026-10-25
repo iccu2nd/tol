@@ -19,9 +19,9 @@ interface KomiktaApi {
     @GET("api/genres") suspend fun genres(): ApiEnvelope<List<String>>
     @GET("api/genre/{genre}") suspend fun byGenre(@Path("genre") genre: String, @Query("source") source: String = "all", @Query("page") page: Int = 1): ApiEnvelope<ComicListData>
     @GET("api/type/{type}") suspend fun byType(@Path("type") type: String, @Query("source") source: String = "all", @Query("page") page: Int = 1): ApiEnvelope<ComicListData>
-    @GET("api/comic/{source}/{id}") suspend fun detail(@Path("source") source: String, @Path("id", encoded = true) id: String): ApiEnvelope<DetailData>
-    @GET("api/comic/{source}/{id}/chapters") suspend fun chapters(@Path("source") source: String, @Path("id", encoded = true) id: String): ApiEnvelope<Map<String, List<Chapter>>>
-    @GET("api/comic/{source}/{id}/chapter/{chapter}") suspend fun chapter(@Path("source") source: String, @Path("id", encoded = true) id: String, @Path("chapter", encoded = true) chapter: String): ApiEnvelope<ReaderData>
+    @GET("api/comic/{source}/{id}") suspend fun detail(@Path("source") source: String, @Path("id") id: String): ApiEnvelope<DetailData>
+    @GET("api/comic/{source}/{id}/chapters") suspend fun chapters(@Path("source") source: String, @Path("id") id: String): ApiEnvelope<ChapterListData>
+    @GET("api/comic/{source}/{id}/chapter/{chapter}") suspend fun chapter(@Path("source") source: String, @Path("id") id: String, @Path("chapter") chapter: String): ApiEnvelope<ReaderData>
 }
 
 object ApiClient {
@@ -35,9 +35,11 @@ object ApiClient {
         chain.proceed(request)
     }
     private val client = OkHttpClient.Builder()
-        .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(35, TimeUnit.SECONDS)
-        .writeTimeout(20, TimeUnit.SECONDS)
+        .connectTimeout(12, TimeUnit.SECONDS)
+        .readTimeout(45, TimeUnit.SECONDS)
+        .writeTimeout(15, TimeUnit.SECONDS)
+        .callTimeout(60, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
         .addInterceptor(auth)
         .addInterceptor(logging)
         .build()
