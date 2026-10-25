@@ -3,6 +3,9 @@ package com.komikta.app.ui
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -247,7 +250,7 @@ private fun ExploreScreen(vm: AppViewModel, onOpen: (Comic) -> Unit) {
     val busy by vm.busy.collectAsState()
     val error by vm.error.collectAsState()
     Column(Modifier.fillMaxSize().background(bg).statusBarsPadding()) {
-        Text("Jelajahi", Modifier.padding(start = 20.dp, top = 12.dp, bottom = 15.dp), fontSize = 27.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+        Text("Jelajahi komik", Modifier.padding(start = 20.dp, top = 16.dp, bottom = 15.dp), fontSize = 27.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(12.dp)).background(surface).padding(horizontal = 13.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Search, null, tint = muted)
@@ -272,7 +275,9 @@ private fun ExploreScreen(vm: AppViewModel, onOpen: (Comic) -> Unit) {
             error != null -> Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) { Text(error!!, color = muted); TextButton(onClick = { if (query.isNotBlank()) vm.search(query) else vm.loadType(selectedType) }) { Text("Coba lagi") } }
             comics.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Cari judul atau pilih kategori untuk mulai.", color = muted) }
             else -> LazyVerticalGrid(columns = GridCells.Adaptive(145.dp), contentPadding = PaddingValues(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                items(comics, key = { it.id.ifBlank { it.title } }) { comic -> ComicCard(comic, onClick = { onOpen(comic) }) }
+                items(items = comics, key = { comic -> comic.id.ifBlank { comic.title } }) { comic ->
+                    ComicCard(comic, onClick = { onOpen(comic) })
+                }
             }
         }
     }
@@ -394,7 +399,7 @@ private fun LibraryScreen(onOpen: (Comic) -> Unit) {
     val context = LocalContext.current
     var bookmarks by remember { mutableStateOf(LocalLibrary.getBookmarks(context)) }
     Column(Modifier.fillMaxSize().background(bg).statusBarsPadding()) {
-        Text("Koleksi", Modifier.padding(start = 20.dp, top = 12.dp, bottom = 14.dp), fontSize = 27.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+        Text("Koleksi kamu", Modifier.padding(start = 20.dp, top = 16.dp, bottom = 14.dp), fontSize = 27.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
         if (bookmarks.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(28.dp), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -412,7 +417,7 @@ private fun LibraryScreen(onOpen: (Comic) -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                items(bookmarks, key = { it.id }) { comic ->
+                items(items = bookmarks, key = { comic -> comic.id }) { comic ->
                     Column {
                         ComicCard(comic, onClick = { onOpen(comic) })
                         TextButton(onClick = {
