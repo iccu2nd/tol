@@ -33,9 +33,83 @@ import com.komikta.app.data.KomiktaRepository
 import kotlinx.coroutines.launch
 
 private val bg = Color(0xFF080808)
-private val surface = Color(0xFF171719)
+private val surface = Color(0xB81C1C20) // translucent glass-like surface
 private val muted = Color(0xFFA1A1AA)
-private val red = Color(0xFFE63846)
+private val red = Color(0xFFF5F5F7) // monochrome accent
+
+private val coverFallback = Color(0xFF202024)
+
+// Glass-inspired surface: translucent charcoal with a fine light border.
+// This is a Compose-friendly glass treatment; it does not require platform blur.
+private fun Modifier.glassSurface(
+    shape: RoundedCornerShape = RoundedCornerShape(20.dp)
+): Modifier = this
+    .clip(shape)
+    .background(Brush.linearGradient(
+        colors = listOf(Color(0xD92A2A30), Color(0xA8151519))
+    ))
+    .border(1.dp, Color(0x24FFFFFF), shape)
+
+
+private fun normalizeImageUrl(raw: String?): String? {
+    val value = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    val cleaned = value.replace("&amp;", "&").replace("\\u0026", "&")
+    return when {
+        cleaned.startsWith("https://", ignoreCase = true) -> cleaned
+        cleaned.startsWith("http://", ignoreCase = true) -> cleaned.replaceFirst(Regex("^http://", RegexOption.IGNORE_CASE), "https://")
+        cleaned.startsWith("//") -> "https:$cleaned"
+        cleaned.startsWith("/") -> "https://tets-server-production.up.railway.app$cleaned"
+        else -> cleaned.takeIf { it.contains("://") }
+    }
+}
+
+@Composable
+private fun ComicArtwork(
+    primaryUrl: String?,
+    fallbackUrl: String? = null,
+    contentDescription: String?,
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Crop
+) {
+    val candidates = remember(primaryUrl, fallbackUrl) {
+        listOfNotNull(normalizeImageUrl(primaryUrl), normalizeImageUrl(fallbackUrl)).distinct()
+    }
+    var candidateIndex by remember(primaryUrl, fallbackUrl) { mutableIntStateOf(0) }
+    Box(modifier.background(coverFallback), contentAlignment = Alignment.Center) {
+        if (candidateIndex < candidates.size) {
+            AsyncImage(
+                model = candidates[candidateIndex],
+                contentDescription = contentDescription,
+                contentScale = contentScale,
+                modifier = Modifier.fillMaxSize(),
+                onError = {
+                    android.util.Log.w("KomiktaImage", "Cover gagal: ${candidates[candidateIndex]}", it.result.throwable)
+                    candidateIndex = (candidateIndex + 1).coerceAtMost(candidates.size)
+                }
+            )
+        }
+        if (candidateIndex >= candidates.size) {
+            Box(Modifier.fillMaxSize().background(coverFallback), contentAlignment = Alignment.Center) {
+                ArtworkPlaceholder(contentDescription)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ArtworkPlaceholder(label: String?) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Icon(Icons.Default.MenuBook, contentDescription = null, tint = Color(0xFF65656D), modifier = Modifier.size(34.dp))
+        Spacer(Modifier.height(8.dp))
+        Text(
+            label?.takeIf { it.isNotBlank() } ?: "Komikta",
+            color = Color(0xFF8A8A93),
+            fontSize = 10.sp,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
 
 @Composable
 fun KomiktaApp(vm: AppViewModel = viewModel()) {
@@ -44,7 +118,7 @@ fun KomiktaApp(vm: AppViewModel = viewModel()) {
     Scaffold(
         containerColor = bg,
         bottomBar = {
-            NavigationBar(containerColor = Color(0xF20E0E10), contentColor = Color.White, tonalElevation = 0.dp) {
+            NavigationBar(containerColor = Color(0xD91A1A1E), contentColor = Color.White, tonalElevation = 0.dp) {
                 val destinations = listOf(
                     Triple("Beranda", Icons.Default.Home, "home"),
                     Triple("Jelajahi", Icons.Default.Explore, "explore"),
@@ -163,11 +237,12 @@ private fun TopBar() {
 @Composable
 private fun HeroBanner(comic: Comic, onRead: () -> Unit, onDetail: () -> Unit) {
     Box(Modifier.fillMaxWidth().height(360.dp)) {
-        AsyncImage(
-            model = comic.cover ?: comic.rawCover,
+        ComicArtwork(
+            primaryUrl = comic.cover,
+            fallbackUrl = comic.rawCover,
             contentDescription = comic.title,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
         )
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
             0f to Color(0x55000000), 0.28f to Color(0x33000000), 0.62f to Color(0xCC000000), 1f to bg
@@ -175,7 +250,7 @@ private fun HeroBanner(comic: Comic, onRead: () -> Unit, onDetail: () -> Unit) {
         Column(
             Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 22.dp, end = 22.dp, bottom = 22.dp)
         ) {
-            Text("PILIHAN KOMIK", color = Color(0xFFE5A6AA), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+            Text("PILIHAN KOMIK", color = Color(0xFFB8B8C0), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
             Spacer(Modifier.height(7.dp))
             Text(comic.title, color = Color.White, fontSize = 29.sp, lineHeight = 33.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(7.dp))
@@ -223,11 +298,12 @@ private fun ComicSection(title: String, comics: List<Comic>, onOpen: (Comic) -> 
 private fun ComicCard(comic: Comic, onClick: () -> Unit) {
     Column(Modifier.width(148.dp).clickable(onClick = onClick)) {
         Box(Modifier.fillMaxWidth().height(212.dp).clip(RoundedCornerShape(10.dp)).background(surface)) {
-            AsyncImage(
-                model = comic.cover ?: comic.rawCover,
+            ComicArtwork(
+                primaryUrl = comic.cover,
+                fallbackUrl = comic.rawCover,
                 contentDescription = comic.title,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
             )
             comic.latestChapter?.let {
                 Text("Ch. $it", Modifier.align(Alignment.TopStart).padding(7.dp).clip(RoundedCornerShape(5.dp)).background(Color(0xD9101012)).padding(horizontal = 7.dp, vertical = 4.dp), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -249,6 +325,7 @@ private fun ExploreScreen(vm: AppViewModel, onOpen: (Comic) -> Unit) {
     val comics by vm.catalog.collectAsState()
     val busy by vm.busy.collectAsState()
     val error by vm.error.collectAsState()
+    LaunchedEffect(Unit) { vm.loadType(selectedType) }
     Column(Modifier.fillMaxSize().background(bg).statusBarsPadding()) {
         Text("Jelajahi komik", Modifier.padding(start = 20.dp, top = 16.dp, bottom = 15.dp), fontSize = 27.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -289,7 +366,8 @@ private fun DetailScreen(source: String, id: String, title: String, onBack: () -
     var chapters by remember { mutableStateOf<List<com.komikta.app.data.Chapter>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(source, id) {
+    var reload by remember { mutableIntStateOf(0) }
+    LaunchedEffect(source, id, reload) {
         loading = true
         KomiktaRepository().detail(Comic(source = source, sourceId = id, id = "$source:$id", title = title)).fold(
             { comic = it.comic; chapters = it.chapters; error = null },
@@ -311,17 +389,17 @@ private fun DetailScreen(source: String, id: String, title: String, onBack: () -
             }
         }
         if (loading) Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = red) }
-        else if (error != null) ErrorLine(error!!, { loading = true; error = null })
+        else if (error != null) ErrorLine(error!!, { error = null; reload++ })
         else LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 24.dp)) {
             item {
                 Row(Modifier.fillMaxWidth().padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    AsyncImage(model = comic?.cover ?: comic?.rawCover, contentDescription = title, contentScale = ContentScale.Crop, modifier = Modifier.width(132.dp).height(190.dp).clip(RoundedCornerShape(10.dp)).background(surface))
+                    ComicArtwork(primaryUrl = comic?.cover, fallbackUrl = comic?.rawCover, contentDescription = title, contentScale = ContentScale.Crop, modifier = Modifier.width(132.dp).height(190.dp).clip(RoundedCornerShape(10.dp)))
                     Column(Modifier.weight(1f)) {
                         Text(comic?.title ?: title, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
                         Spacer(Modifier.height(8.dp))
                         Text(listOfNotNull(comic?.type, comic?.status, comic?.author).joinToString(" · ").ifBlank { source }, color = muted, fontSize = 12.sp)
                         Spacer(Modifier.height(10.dp))
-                        comic?.genres?.take(4)?.joinToString(" • ")?.let { Text(it, color = Color(0xFFE7A0A6), fontSize = 12.sp) }
+                        comic?.genres?.take(4)?.joinToString(" • ")?.let { Text(it, color = Color(0xFFB8B8C0), fontSize = 12.sp) }
                         Spacer(Modifier.height(14.dp))
                         Button(onClick = { chapters.firstOrNull()?.chapter?.let(onRead) }, enabled = chapters.isNotEmpty(), colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)) { Icon(Icons.Default.PlayArrow, null); Text(" Baca") }
                     }
@@ -348,7 +426,8 @@ private fun ReaderScreen(source: String, id: String, chapter: String, title: Str
     var reader by remember { mutableStateOf<com.komikta.app.data.ReaderData?>(null) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(source, id, chapter) {
+    var reload by remember { mutableIntStateOf(0) }
+    LaunchedEffect(source, id, chapter, reload) {
         loading = true
         KomiktaRepository().chapter(Comic(source = source, sourceId = id, id = "$source:$id", title = title), chapter).fold(
             { reader = it; error = null },
@@ -366,10 +445,10 @@ private fun ReaderScreen(source: String, id: String, chapter: String, title: Str
         }
         when {
             loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = red) }
-            error != null -> ErrorLine(error!!, onRetry = { error = null; loading = true })
+            error != null -> ErrorLine(error!!, onRetry = { error = null; reload++ })
             reader?.chapter?.images?.isNotEmpty() == true -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
                 items(reader!!.chapter.images, key = { it.index }) { page ->
-                    AsyncImage(model = page.image, contentDescription = "Halaman ${page.index + 1}", contentScale = ContentScale.FillWidth, modifier = Modifier.fillMaxWidth().background(Color.Black))
+                    ReaderPageImage(page = page)
                 }
                 item {
                     Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -388,7 +467,36 @@ private fun ReaderScreen(source: String, id: String, chapter: String, title: Str
                 item { Text(reader!!.chapter.title, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold) }
                 items(reader!!.chapter.novelContent!!.paragraphs) { paragraph -> Text(paragraph, color = Color(0xFFE4E4E7), fontSize = 16.sp, lineHeight = 27.sp, modifier = Modifier.padding(top = 16.dp)) }
             }
-            else -> EmptyState("Chapter kosong", "Sumber tidak mengembalikan halaman untuk chapter ini.", onRetry = { loading = true })
+            else -> EmptyState("Chapter kosong", "Sumber tidak mengembalikan halaman untuk chapter ini.", onRetry = { reload++ })
+        }
+    }
+}
+
+
+@Composable
+private fun ReaderPageImage(page: com.komikta.app.data.ChapterImage) {
+    val urls = remember(page.image, page.rawUrl) {
+        listOfNotNull(normalizeImageUrl(page.image), normalizeImageUrl(page.rawUrl)).distinct()
+    }
+    var index by remember(page.image, page.rawUrl) { mutableIntStateOf(0) }
+    if (index < urls.size) {
+        AsyncImage(
+            model = urls[index],
+            contentDescription = "Halaman ${page.index + 1}",
+            contentScale = ContentScale.FillWidth,
+            modifier = Modifier.fillMaxWidth().background(Color.Black),
+            onError = {
+                android.util.Log.w("KomiktaImage", "Halaman ${page.index + 1} gagal: ${it.result.throwable.message}")
+                index = (index + 1).coerceAtMost(urls.size)
+            }
+        )
+    } else {
+        Box(Modifier.fillMaxWidth().height(220.dp).background(Color(0xFF171719)), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(Icons.Default.BrokenImage, contentDescription = null, tint = muted, modifier = Modifier.size(28.dp))
+                Spacer(Modifier.height(8.dp))
+                Text("Halaman ${page.index + 1} tidak dapat dimuat", color = muted, fontSize = 12.sp)
+            }
         }
     }
 }

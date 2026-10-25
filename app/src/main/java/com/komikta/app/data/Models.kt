@@ -1,5 +1,7 @@
 package com.komikta.app.data
 
+import com.google.gson.annotations.SerializedName
+
 data class ApiEnvelope<T>(val success: Boolean = false, val data: T? = null, val error: ApiError? = null)
 data class ApiError(val code: String? = null, val message: String? = null)
 
@@ -16,7 +18,9 @@ data class Comic(
     val genres: List<String> = emptyList(),
     val author: String? = null,
     val artist: String? = null,
+    @SerializedName(value = "cover", alternate = ["coverUrl", "cover_url", "thumbnail", "thumbnailUrl", "imageUrl"])
     val cover: String? = null,
+    @SerializedName(value = "rawCover", alternate = ["raw_cover", "originalCover", "original_cover", "coverOriginal"])
     val rawCover: String? = null,
     val synopsis: String? = null,
     val latestChapter: String? = null,
@@ -43,7 +47,11 @@ data class Chapter(
     val releaseDate: String? = null
 )
 data class DetailData(val comic: Comic = Comic(), val chapters: List<Chapter> = emptyList())
-data class ChapterImage(val index: Int = 0, val image: String = "", val rawUrl: String? = null)
+data class ChapterImage(
+    val index: Int = 0,
+    @SerializedName(value = "image", alternate = ["url", "src", "imageUrl", "image_url"]) val image: String = "",
+    @SerializedName(value = "rawUrl", alternate = ["raw_url", "originalUrl", "original_url"]) val rawUrl: String? = null
+)
 data class NovelContent(val paragraphs: List<String> = emptyList())
 data class ChapterContent(
     val id: String = "",
