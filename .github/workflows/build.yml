@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    name: Build Android APK
+    name: Build Komikta APK
     runs-on: ubuntu-latest
 
     steps:
@@ -25,12 +25,26 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Accept Android SDK licenses
+        run: |
+          mkdir -p "$ANDROID_HOME/licenses"
+          printf '%s\n' \
+            '8933bad161af4178b1185d1a37fbf41ea5269c55' \
+            'd56f5187479451eabf01fb78af6dfcb131a6481e' \
+            '24333f8a63b6825ea9c5514f83c2829b004d1fee' \
+            > "$ANDROID_HOME/licenses/android-sdk-license"
+          yes | sdkmanager --licenses || true
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
       - name: Install Android SDK packages
         run: |
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager --licenses
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
