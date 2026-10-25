@@ -1,17 +1,22 @@
 
-name: Build Komikta Debug APK
+name: Build Komikta APK
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: komikta-apk-build
+  cancel-in-progress: true
+
 jobs:
   build:
-    name: Build Komikta APK
+    name: Build Komikta Debug APK
     runs-on: ubuntu-24.04
     timeout-minutes: 30
 
@@ -53,45 +58,70 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses \
-            || test "${PIPESTATUS[1]}" -eq 141
+
+          set +o pipefail
+          yes | "$SDKMANAGER" \
+            --sdk_root="$ANDROID_HOME" \
+            --licenses
+          result=${PIPESTATUS[1]}
+          set -o pipefail
+
+          if [ "$result" -ne 0 ]; then
+            exit "$result"
+          fi
 
       - name: Install Android SDK packages
         shell: bash
         run: |
           set -euo pipefail
+
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             --sdk_root="$ANDROID_HOME" \
             "platform-tools" \
             "platforms;android-35" \
             "build-tools;35.0.0"
 
-      - name: Verify project files
+      - name: Verify project structure
         shell: bash
         run: |
           set -euo pipefail
+
           test -f settings.gradle.kts
           test -f build.gradle.kts
           test -f app/build.gradle.kts
           test -f app/src/main/AndroidManifest.xml
+
+          echo "Project structure OK"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Build APK
+      - name: Build debug APK
         shell: bash
-        run: gradle --no-daemon --stacktrace assembleDebug
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace assembleDebug
 
       - name: Verify APK
         shell: bash
         run: |
-          test -s app/build/outputs/apk/debug/app-debug.apk
-          ls -lh app/build/outputs/apk/debug/app-debug.apk
+          set -euo pipefail
 
-      - name: Upload APK
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+
+          if [ ! -s "$APK" ]; then
+            echo "ERROR: APK tidak ditemukan atau kosong"
+            exit 1
+          fi
+
+          ls -lh "$APK"
+          echo "APK berhasil dibuat"
+
+      - name: Upload Komikta APK
         uses: actions/upload-artifact@v4
         with:
           name: Komikta-debug-APK
